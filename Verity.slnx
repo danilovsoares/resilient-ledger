@@ -1,0 +1,25 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/DailyBalance/">
+    <Project Path="src/DailyBalance/Verity.DailyBalance.Api/Verity.DailyBalance.Api.csproj" />
+    <Project Path="src/DailyBalance/Verity.DailyBalance.Application/Verity.DailyBalance.Application.csproj" />
+    <Project Path="src/DailyBalance/Verity.DailyBalance.Domain/Verity.DailyBalance.Domain.csproj" />
+    <Project Path="src/DailyBalance/Verity.DailyBalance.Infrastructure/Verity.DailyBalance.Infrastructure.csproj" />
+    <Project Path="src/DailyBalance/Verity.DailyBalance.Worker/Verity.DailyBalance.Worker.csproj" />
+  </Folder>
+  <Folder Name="/src/Ledger/">
+    <Project Path="src/Ledger/Verity.Ledger.Api/Verity.Ledger.Api.csproj" />
+    <Project Path="src/Ledger/Verity.Ledger.Application/Verity.Ledger.Application.csproj" />
+    <Project Path="src/Ledger/Verity.Ledger.Domain/Verity.Ledger.Domain.csproj" />
+    <Project Path="src/Ledger/Verity.Ledger.Infrastructure/Verity.Ledger.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Shared/">
+    <Project Path="src/Shared/Verity.Shared.Contracts/Verity.Shared.Contracts.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Verity.DailyBalance.IntegrationTests/Verity.DailyBalance.IntegrationTests.csproj" />
+    <Project Path="tests/Verity.DailyBalance.UnitTests/Verity.DailyBalance.UnitTests.csproj" />
+    <Project Path="tests/Verity.Ledger.IntegrationTests/Verity.Ledger.IntegrationTests.csproj" />
+    <Project Path="tests/Verity.Ledger.UnitTests/Verity.Ledger.UnitTests.csproj" />
+  </Folder>
+</Solution>

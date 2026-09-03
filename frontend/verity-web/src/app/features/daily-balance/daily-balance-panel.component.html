@@ -1,0 +1,45 @@
+<div class="page-header">
+  <span class="eyebrow">Saldo Consolidado</span>
+  <h1 class="page-title brand-suffix">Saldo Diário</h1>
+  <p class="page-sub">Consulte o saldo consolidado por data de negócio.</p>
+</div>
+
+<section class="panel">
+  <h2 class="brand-suffix">Saldo diário consolidado</h2>
+
+  <div class="controls">
+    <label>
+      Data
+      <input type="date" [ngModel]="state.selectedDate()" (ngModelChange)="state.selectedDate.set($event)" />
+    </label>
+    <button type="button" (click)="refresh()" [disabled]="loading()">
+      {{ loading() ? 'Atualizando…' : 'Atualizar' }}
+    </button>
+  </div>
+
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  } @else if (balance()) {
+    <dl class="summary">
+      <div>
+        <dt>Total de créditos</dt>
+        <dd class="credit">{{ balance()!.totalCredits | number: '1.2-2' }}</dd>
+      </div>
+      <div>
+        <dt>Total de débitos</dt>
+        <dd class="debit">{{ balance()!.totalDebits | number: '1.2-2' }}</dd>
+      </div>
+      <div>
+        <dt>Saldo</dt>
+        <dd class="balance">{{ balance()!.balance | number: '1.2-2' }}</dd>
+      </div>
+    </dl>
+    <p class="muted">
+      @if (balance()!.updatedAt) {
+        Última atualização: {{ balance()!.updatedAt | date: 'dd/MM/yyyy HH:mm' }}
+      } @else {
+        Sem lançamentos processados para esta data ainda.
+      }
+    </p>
+  }
+</section>

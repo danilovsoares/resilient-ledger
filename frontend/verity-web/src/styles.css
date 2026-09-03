@@ -1,0 +1,101 @@
+/* You can add global styles to this file, and also import other style files */
+
+:root {
+  --color-bg: #f5f6fb;
+  --color-surface: #ffffff;
+  --color-border: #e3e6f3;
+
+  --color-text: #16123f;
+  --color-text-muted: #6b6f8c;
+
+  --color-primary: #0041ff;
+  --color-primary-hover: #0035d1;
+  --color-primary-deep: #14127a;
+  --color-primary-soft: #e8ecff;
+
+  --color-credit: #15803d;
+  --color-credit-soft: #ecfdf3;
+  --color-debit: #b91c1c;
+  --color-debit-soft: #fef2f2;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-full: 999px;
+
+  --shadow-sm: 0 1px 2px rgba(20, 18, 122, 0.05);
+  --shadow-md: 0 12px 32px rgba(20, 18, 122, 0.1);
+
+  --gradient-hero: linear-gradient(135deg, #0a0f5c 0%, #14127a 35%, #0041ff 100%);
+
+  --font-sans:
+    'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial,
+    sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3 {
+  color: var(--color-primary-deep);
+  font-weight: 600;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+button {
+  font-family: inherit;
+}
+
+/* Assinatura visual da marca: um "_" de destaque ao final de títulos e rótulos. */
+.brand-suffix::after {
+  content: '_';
+  color: var(--color-primary);
+}
+
+/* Cabeçalho compartilhado por cada página do menu lateral. */
+.page-header {
+  margin-bottom: 2rem;
+}
+
+.eyebrow {
+  display: inline-block;
+  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
+.page-title {
+  margin: 0 0 0.4rem;
+  font-size: 1.9rem;
+}
+
+.page-sub {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.95rem;
+  max-width: 60ch;
+}

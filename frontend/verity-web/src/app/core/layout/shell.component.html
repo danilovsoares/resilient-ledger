@@ -1,0 +1,41 @@
+<div class="page">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="brand-mark">F</span>
+        <div>
+          <strong class="brand-name">Fluxo de Caixa</strong>
+          <span class="brand-tagline">LANÇAMENTOS + SALDO DIÁRIO</span>
+        </div>
+      </div>
+
+      <div class="session">
+        <span class="session-user">{{ auth.displayName() }}</span>
+        <button type="button" class="logout-button" (click)="logout()">Sair</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <nav class="nav">
+        <a routerLink="/lancamentos" routerLinkActive="active" class="nav-link">
+          <span class="nav-dot"></span>
+          Lançamentos
+        </a>
+        <a routerLink="/saldo" routerLinkActive="active" class="nav-link">
+          <span class="nav-dot"></span>
+          Saldo Diário
+        </a>
+      </nav>
+    </aside>
+
+    <main class="content">
+      <router-outlet />
+    </main>
+  </div>
+
+  <footer class="footer">
+    <span>Uso exclusivo para avaliação do desafio técnico.</span>
+  </footer>
+</div>

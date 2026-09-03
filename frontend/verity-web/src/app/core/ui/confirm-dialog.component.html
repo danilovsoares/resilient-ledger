@@ -1,0 +1,13 @@
+<div class="backdrop" (click)="cancelled.emit()">
+  <div class="dialog" role="alertdialog" aria-modal="true" [attr.aria-label]="title()" (click)="$event.stopPropagation()">
+    <h3>{{ title() }}</h3>
+    <p>{{ message() }}</p>
+
+    <div class="dialog-actions">
+      <button type="button" class="secondary-button" (click)="cancelled.emit()">{{ cancelLabel() }}</button>
+      <button type="button" [class.danger-button]="danger()" [class.primary-button]="!danger()" (click)="confirmed.emit()">
+        {{ confirmLabel() }}
+      </button>
+    </div>
+  </div>
+</div>

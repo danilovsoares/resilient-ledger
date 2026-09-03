@@ -1,0 +1,124 @@
+<div class="page-header">
+  <span class="eyebrow">Livro de Caixa</span>
+  <h1 class="page-title brand-suffix">Lançamentos</h1>
+  <p class="page-sub">Registre créditos e débitos e acompanhe o histórico do dia.</p>
+</div>
+
+<div class="page-grid">
+  <section class="panel form-panel">
+    <h2 class="brand-suffix">Novo lançamento</h2>
+
+    <form [formGroup]="form" (ngSubmit)="submit()" class="form">
+      <label>
+        Tipo
+        <select formControlName="type">
+          <option [ngValue]="TransactionType.Credit">Crédito</option>
+          <option [ngValue]="TransactionType.Debit">Débito</option>
+        </select>
+      </label>
+
+      <label>
+        Valor
+        <input type="text" inputmode="decimal" formControlName="amount" appCurrencyMask />
+      </label>
+
+      <label>
+        Data/hora de ocorrência
+        <input type="datetime-local" formControlName="occurredAt" />
+      </label>
+
+      <label>
+        Descrição (opcional)
+        <input type="text" formControlName="description" maxlength="500" />
+      </label>
+
+      <button type="submit" [disabled]="form.invalid || submitting()">
+        {{ submitting() ? 'Registrando…' : 'Registrar lançamento' }}
+      </button>
+
+      @if (errorMessage()) {
+        <p class="error">{{ errorMessage() }}</p>
+      }
+    </form>
+  </section>
+
+  <section class="panel list-panel">
+    <h2 class="brand-suffix">Lançamentos de {{ state.selectedDate() | date: 'dd/MM/yyyy' }}</h2>
+
+    <div class="controls">
+      <label>
+        Data
+        <input type="date" [ngModel]="state.selectedDate()" (ngModelChange)="state.selectedDate.set($event)" />
+      </label>
+      <button type="button" (click)="goToToday()" [disabled]="isToday()">Hoje</button>
+    </div>
+
+    @if (cancelError()) {
+      <p class="error">{{ cancelError() }}</p>
+    }
+
+    @if (loadingList()) {
+      <p>Carregando…</p>
+    } @else if (transactions().length === 0) {
+      <p class="muted">Nenhum lançamento nesta data.</p>
+    } @else {
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Tipo</th>
+              <th>Valor</th>
+              <th>Ocorrido em</th>
+              <th>Descrição</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (transaction of transactions(); track transaction.id) {
+              <tr>
+                <td>
+                  <span [class]="transaction.type === TransactionType.Credit ? 'credit' : 'debit'">
+                    {{ transaction.type === TransactionType.Credit ? 'Crédito' : 'Débito' }}
+                  </span>
+                </td>
+                <td>{{ transaction.amount | number: '1.2-2' }}</td>
+                <td>{{ transaction.occurredAt | date: 'dd/MM/yyyy HH:mm' }}</td>
+                <td>{{ transaction.description || '—' }}</td>
+                <td>
+                  <span class="actions">
+                    @if (transaction.reversedByTransactionId) {
+                      <span class="reversed-tag">Estornado</span>
+                    } @else if (cancellingId() === transaction.id) {
+                      <span class="muted">Estornando…</span>
+                    } @else {
+                      <button type="button" class="cancel-button" (click)="requestCancel(transaction)">Estornar</button>
+                    }
+                  </span>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      @if (totalPages() > 1) {
+        <div class="pagination">
+          <button type="button" (click)="previousPage()" [disabled]="page() === 1">Anterior</button>
+          <span class="muted">Página {{ page() }} de {{ totalPages() }}</span>
+          <button type="button" (click)="nextPage()" [disabled]="page() === totalPages()">Próxima</button>
+        </div>
+      }
+    }
+  </section>
+</div>
+
+@if (pendingCancel()) {
+  <app-confirm-dialog
+    title="Estornar lançamento"
+    [message]="pendingCancelMessage()"
+    confirmLabel="Estornar"
+    [danger]="true"
+    (confirmed)="confirmCancel()"
+    (cancelled)="dismissCancel()"
+  />
+}

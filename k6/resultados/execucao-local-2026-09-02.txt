@@ -1,0 +1,25 @@
+Execução de referência (ambiente local, docker compose, notebook do autor)
+Data: 2026-09-02
+Comando:
+  docker run --rm --network verity_default -v "D:/Projetos/Verity/k6:/scripts" \
+    -e BASE_URL=http://daily-balance-api:8080 -e TOKEN=$TOKEN -e BUSINESS_DATE=2026-09-02 \
+    grafana/k6:latest run /scripts/consolidado-50rps.js
+
+Cenário: aquecimento (10 RPS / 30s) seguido de carga constante (50 RPS / 2min) contra
+GET /api/v1/daily-balances/{date}, com dados já consolidados em cache (Redis) e no PostgreSQL.
+
+Resultado (thresholds definidos no próprio script):
+  http_req_duration: p(95)=2.05ms (threshold p(95)<300ms) -> PASSOU
+  http_req_failed:   rate=0.00%   (threshold rate<5%)      -> PASSOU
+
+Totais:
+  http_reqs: 6302 (~42 req/s medidos pelo k6 incluindo o estágio de aquecimento;
+             o estágio de carga constante manteve exatamente 50 iters/s conforme configurado)
+  checks_succeeded: 100% (12604/12604)
+  avg=1.48ms  min=0.71ms  med=1.43ms  max=72.89ms  p90=1.84ms  p95=2.05ms
+
+Observação: este é um resultado de notebook local, com API, worker, PostgreSQL, RabbitMQ e
+Redis todos rodando via Docker Compose na mesma máquina (sem isolamento de rede/latência real
+de produção). Serve como evidência reprodutível de que a arquitetura de leitura (cache-aside +
+projeção pré-agregada) atende à meta sob a carga alvo neste ambiente — não é uma garantia de
+comportamento em produção (ver docs/performance-and-capacity.md).

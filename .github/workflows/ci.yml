@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  DOTNET_VERSION: "10.0.x"
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+
+jobs:
+  backend-build-and-unit-tests:
+    name: Backend - build e testes de domínio
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restaurar dependências
+        run: dotnet restore Verity.slnx
+
+      - name: Build
+        run: dotnet build Verity.slnx --no-restore -c Release
+
+      - name: Testes unitários (Ledger)
+        run: dotnet test tests/Verity.Ledger.UnitTests/Verity.Ledger.UnitTests.csproj --no-build -c Release --logger "trx"
+
+      - name: Testes unitários (Daily Balance)
+        run: dotnet test tests/Verity.DailyBalance.UnitTests/Verity.DailyBalance.UnitTests.csproj --no-build -c Release --logger "trx"
+
+  backend-integration-tests:
+    name: Backend - testes de integração (Testcontainers)
+    runs-on: ubuntu-latest
+    needs: backend-build-and-unit-tests
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restaurar dependências
+        run: dotnet restore Verity.slnx
+
+      # O runner ubuntu-latest do GitHub Actions já traz Docker instalado, usado pelo
+      # Testcontainers para subir PostgreSQL/RabbitMQ reais durante os testes
+      # (ver docs/testing-strategy.md).
+      - name: Testes de integração (Ledger)
+        run: dotnet test tests/Verity.Ledger.IntegrationTests/Verity.Ledger.IntegrationTests.csproj -c Release --logger "trx"
+
+      - name: Testes de integração (Daily Balance)
+        run: dotnet test tests/Verity.DailyBalance.IntegrationTests/Verity.DailyBalance.IntegrationTests.csproj -c Release --logger "trx"
+
+  frontend-build:
+    name: Frontend - lint e build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend/verity-web
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/verity-web/package-lock.json
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Testes
+        run: npm test
+
+      - name: Build de produção
+        run: npm run build

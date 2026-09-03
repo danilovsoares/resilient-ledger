@@ -1,0 +1,50 @@
+<div class="login-shell">
+ <div class="login-shell-inner">
+  <div class="hero-copy">
+    <span class="hero-wordmark">Fluxo de Caixa</span>
+    <h1 class="hero-headline">
+      O lançamento entra_<br />
+      O saldo nunca para_
+    </h1>
+    <p class="hero-sub">Fluxo de caixa com registro sempre disponível e consolidado em tempo real.</p>
+  </div>
+
+  <section class="login-card">
+    <div class="brand">
+      <span class="brand-mark">F</span>
+      <div>
+        <strong class="brand-name">Fluxo de Caixa</strong>
+        <span class="brand-tagline">LANÇAMENTOS + SALDO DIÁRIO</span>
+      </div>
+    </div>
+
+    <h2 class="brand-suffix">Entrar</h2>
+    <p class="muted">Acesse com as credenciais do comerciante para registrar lançamentos e consultar o saldo.</p>
+
+    <form [formGroup]="form" (ngSubmit)="submit()" class="form">
+      <label>
+        Usuário
+        <input type="text" formControlName="username" autocomplete="username" maxlength="128" />
+      </label>
+
+      <label>
+        Senha
+        <input type="password" formControlName="password" autocomplete="current-password" maxlength="72" />
+      </label>
+
+      <button type="submit" [disabled]="form.invalid || submitting()">
+        {{ submitting() ? 'Entrando…' : 'Entrar' }}
+      </button>
+
+      @if (errorMessage()) {
+        <p class="error">{{ errorMessage() }}</p>
+      }
+    </form>
+
+    <p class="hint">
+      Ambiente de demonstração — não há cadastro de novos usuários (ver README). Credencial
+      padrão: <code>comerciante</code> / <code>verity123</code>.
+    </p>
+  </section>
+ </div>
+</div>
