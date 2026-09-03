@@ -83,3 +83,59 @@ jobs:
 
       - name: Build de produção
         run: npm run build
+
+  e2e-tests:
+    name: E2E - jornada do comerciante (Playwright)
+    runs-on: ubuntu-latest
+    needs: [backend-integration-tests, frontend-build]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Subir a stack (docker compose)
+        run: docker compose up -d --build
+
+      - name: Aguardar as APIs e o frontend ficarem prontos
+        run: |
+          for url in http://localhost:5080/health/live http://localhost:5081/health/live http://localhost:4201; do
+            echo "Aguardando $url..."
+            timeout 120 bash -c "until curl -sf $url > /dev/null; do sleep 2; done"
+          done
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: tests/e2e/package-lock.json
+
+      - name: Instalar dependências
+        working-directory: tests/e2e
+        run: npm ci
+
+      - name: Instalar navegadores do Playwright
+        working-directory: tests/e2e
+        run: npx playwright install --with-deps chromium
+
+      - name: Rodar testes E2E
+        working-directory: tests/e2e
+        run: npm test
+
+      - name: Logs da stack (em caso de falha)
+        if: failure()
+        run: docker compose logs --no-color --tail=200
+
+      - name: Publicar capturas de tela e relatório
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report
+          path: |
+            tests/e2e/screenshots/**
+            tests/e2e/playwright-report/**
+            tests/e2e/test-results/**
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Derrubar a stack
+        if: always()
+        run: docker compose down -v
