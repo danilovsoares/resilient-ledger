@@ -72,7 +72,7 @@ sequenceDiagram
             Publisher->>Db: UPDATE outbox_messages SET published_at = now()
         else Falha ao publicar
             Publisher->>Db: UPDATE outbox_messages SET retry_count += 1, last_error = ...
-            Note over Publisher: Mensagem permanece pendente; será tentada de novo no próximo ciclo
+            Note over Publisher: Mensagem permanece pendente — será tentada de novo no próximo ciclo
         end
     end
 ```
