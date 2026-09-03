@@ -19,16 +19,39 @@ diagnóstico assumem os nomes de serviço do `docker-compose.yml` (`ledger-api`,
   de falha de publicação.
 - **Dados a verificar**: `docker compose ps rabbitmq` (container saudável?);
   `GET http://localhost:5080/health/ready` (o check `rabbitmq` reporta `Unhealthy`?);
-  `SELECT count(*) FROM outbox_messages WHERE published_at IS NULL;` no banco `verity_ledger`.
+  `SELECT count(*) FROM outbox_messages WHERE published_at IS NULL AND dead_lettered_at IS
+  NULL;` no banco `verity_ledger` (exclui mensagens dead-lettered — essas têm causa raiz
+  diferente, ver procedimento 2, e nunca chegam a zero sozinhas).
 - **Ação segura**: restaurar o RabbitMQ (`docker compose restart rabbitmq` ou investigar a causa
   raiz de infraestrutura). Não é necessária nenhuma ação manual sobre `outbox_messages` — o
   `OutboxPublisherService` drena o backlog automaticamente assim que o broker volta.
-- **Critério de recuperação**: `outbox_messages` pendentes voltando a zero e `/health/ready` do
-  Ledger reportando saudável.
+- **Critério de recuperação**: a contagem acima voltando a zero e `/health/ready` do Ledger
+  reportando saudável.
 - **Registro posterior**: anotar o tempo total de indisponibilidade do broker e o pico de
   mensagens pendentes observado, para dimensionar alertas futuros.
 
-## 2. Consumidor (Daily Balance Worker) parado
+## 2. Mensagem de Outbox dead-lettered (falha permanente)
+
+- **Sintoma**: log `Error` do `OutboxPublisherService` com "falha permanente ... não será mais
+  reprocessada automaticamente"; uma mensagem específica nunca sai de `outbox_messages` mesmo
+  com o RabbitMQ saudável.
+- **Dados a verificar**: `SELECT id, type, last_error, dead_lettered_at FROM outbox_messages
+  WHERE dead_lettered_at IS NOT NULL;` no banco `verity_ledger` — `last_error` traz a causa
+  (tipo de evento não registrado em `OutboxEventTypeRegistry`, ou payload que não desserializa
+  para o tipo esperado).
+- **Ação segura**: **não** há reprocessamento automático — corrigir a causa raiz primeiro (ex.:
+  registrar o tipo do evento em `OutboxEventTypeRegistry` e reimplantar, se foi isso). Depois,
+  para reprocessar essa mensagem específica, limpar `dead_lettered_at` manualmente
+  (`UPDATE outbox_messages SET dead_lettered_at = NULL WHERE id = ?;`) — o `OutboxPublisherService`
+  volta a selecioná-la no próximo ciclo. Não editar `payload`/`type` diretamente em produção sem
+  validar antes em um ambiente de teste.
+- **Critério de recuperação**: a linha volta a ter `published_at` preenchido e some da consulta
+  de mensagens dead-lettered.
+- **Registro posterior**: causa raiz documentada — mensagem dead-lettered quase sempre indica um
+  bug de código (tipo de evento novo esquecido no registry) ou dado corrompido, não uma falha de
+  infraestrutura.
+
+## 3. Consumidor (Daily Balance Worker) parado
 
 - **Sintoma**: saldo consolidado parou de refletir novos lançamentos; fila de consumo do
   RabbitMQ crescendo sem consumidores ativos (visível na management UI,
@@ -44,7 +67,7 @@ diagnóstico assumem os nomes de serviço do `docker-compose.yml` (`ledger-api`,
 - **Registro posterior**: causa raiz da parada (OOM, exceção não tratada, deploy) e tempo até a
   detecção.
 
-## 3. Mensagens em DLQ
+## 4. Mensagens em DLQ
 
 - **Sintoma**: fila `*_error` do RabbitMQ (criada automaticamente pelo MassTransit para o
   receive endpoint do consumidor) com profundidade maior que zero.
@@ -59,7 +82,7 @@ diagnóstico assumem os nomes de serviço do `docker-compose.yml` (`ledger-api`,
   lançamento reprocessado.
 - **Registro posterior**: causa raiz documentada; se foi um bug de código, referenciar o fix.
 
-## 4. Cache Redis indisponível
+## 5. Cache Redis indisponível
 
 - **Sintoma**: `GET http://localhost:5081/health/ready` reporta o check `redis` como
   `Degraded`; latência da consulta de saldo aumentando (mais chamadas caindo direto no
@@ -75,14 +98,14 @@ diagnóstico assumem os nomes de serviço do `docker-compose.yml` (`ledger-api`,
 - **Registro posterior**: tempo de indisponibilidade do Redis e impacto observado na latência
   p95 da consulta.
 
-## 5. Aumento de latência/erros no endpoint de consulta
+## 6. Aumento de latência/erros no endpoint de consulta
 
 - **Sintoma**: p95 de `GET /api/v1/daily-balances/{date}` acima da meta (ver
   [performance-and-capacity.md](performance-and-capacity.md)) ou aumento de respostas 5xx.
 - **Dados a verificar**: `verity.dailybalance.cache.hits`/`.misses` (queda na taxa de acerto?);
   `/health/ready` da Daily Balance API (PostgreSQL saudável?); logs estruturados filtrados por
   `Service=verity-daily-balance-api` e status 5xx.
-- **Ação segura**: se o Redis estiver indisponível, seguir o procedimento 4. Se o PostgreSQL
+- **Ação segura**: se o Redis estiver indisponível, seguir o procedimento 5. Se o PostgreSQL
   estiver com latência alta, verificar conexões ativas e locks
   (`SELECT * FROM pg_stat_activity;`). Escalar réplicas da Daily Balance API é seguro a
   qualquer momento — é um serviço stateless.
@@ -90,7 +113,7 @@ diagnóstico assumem os nomes de serviço do `docker-compose.yml` (`ledger-api`,
 - **Registro posterior**: se a causa foi volume de tráfego, considerar ajustar o rate limit ou o
   número de réplicas.
 
-## 6. Rastrear uma operação pelo CorrelationId
+## 7. Rastrear uma operação pelo CorrelationId
 
 - **Sintoma**: necessidade de investigar "o que aconteceu com o lançamento X" (suporte,
   auditoria, depuração).

@@ -22,5 +22,8 @@ public sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<Outbox
 
         builder.HasIndex(m => m.PublishedAt)
             .HasDatabaseName("ix_outbox_messages_published_at");
+
+        builder.HasIndex(m => m.DeadLetteredAt)
+            .HasDatabaseName("ix_outbox_messages_dead_lettered_at");
     }
 }

@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,6 +10,8 @@ using Verity.Ledger.Domain.Transactions;
 using Verity.Ledger.Infrastructure.Persistence;
 using Verity.Ledger.IntegrationTests.Infrastructure;
 using Verity.Shared.Contracts.Correlation;
+using ContractTransactionType = Verity.Shared.Contracts.IntegrationEvents.TransactionType;
+using TransactionRegisteredEvent = Verity.Shared.Contracts.IntegrationEvents.TransactionRegisteredEvent;
 
 namespace Verity.Ledger.IntegrationTests.Messaging;
 
@@ -83,5 +86,82 @@ public sealed class OutboxPublisherPipelineTests : IAsyncLifetime
         }
 
         Assert.Fail("O OutboxPublisherService não publicou a mensagem pendente no broker real dentro do prazo esperado.");
+    }
+
+    [Fact]
+    public async Task Mensagem_permanentemente_quebrada_nao_bloqueia_publicacao_das_demais_mensagens_do_mesmo_lote()
+    {
+        var brokenMessageId = Guid.NewGuid();
+        var healthyMessageId = Guid.NewGuid();
+        var occurredAt = DateTimeOffset.UtcNow;
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<LedgerDbContext>();
+
+            // OccurredAt anterior à mensagem saudável: como o publicador ordena por OccurredAt,
+            // a quebrada é processada primeiro dentro do mesmo lote — é justamente esse caso
+            // (poison message "na frente" da fila) que prova o isolamento.
+            dbContext.OutboxMessages.Add(new OutboxMessage
+            {
+                Id = brokenMessageId,
+                Type = "Verity.Ledger.Tests.EventoTipoInexistente",
+                Payload = "{}",
+                CorrelationId = Guid.NewGuid(),
+                CausationId = Guid.NewGuid(),
+                OccurredAt = occurredAt,
+                RetryCount = 0,
+            });
+
+            var integrationEvent = new TransactionRegisteredEvent(
+                EventId: Guid.NewGuid(),
+                TransactionId: Guid.NewGuid(),
+                Type: ContractTransactionType.Credit,
+                Amount: 20m,
+                BusinessDate: DateOnly.FromDateTime(DateTime.UtcNow),
+                OccurredAtUtc: DateTimeOffset.UtcNow,
+                CorrelationId: Guid.NewGuid(),
+                CausationId: Guid.NewGuid());
+
+            dbContext.OutboxMessages.Add(new OutboxMessage
+            {
+                Id = healthyMessageId,
+                Type = typeof(TransactionRegisteredEvent).FullName!,
+                Payload = JsonSerializer.Serialize(integrationEvent),
+                CorrelationId = Guid.NewGuid(),
+                CausationId = Guid.NewGuid(),
+                OccurredAt = occurredAt.AddMilliseconds(1),
+                RetryCount = 0,
+            });
+
+            await dbContext.SaveChangesAsync();
+        }
+
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(15);
+        OutboxMessage? healthy = null;
+        OutboxMessage? broken = null;
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var scope = _factory.Services.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<LedgerDbContext>();
+            healthy = await dbContext.OutboxMessages.AsNoTracking().SingleAsync(m => m.Id == healthyMessageId);
+            broken = await dbContext.OutboxMessages.AsNoTracking().SingleAsync(m => m.Id == brokenMessageId);
+
+            if (healthy.PublishedAt is not null && broken.DeadLetteredAt is not null)
+            {
+                break;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(250));
+        }
+
+        broken.Should().NotBeNull();
+        broken!.DeadLetteredAt.Should().NotBeNull("um tipo de evento desconhecido nunca vai se resolver sozinho");
+        broken.PublishedAt.Should().BeNull();
+
+        healthy.Should().NotBeNull();
+        healthy!.PublishedAt.Should().NotBeNull(
+            "a mensagem quebrada no mesmo lote não deve impedir a publicação das demais mensagens");
+        healthy.DeadLetteredAt.Should().BeNull();
     }
 }

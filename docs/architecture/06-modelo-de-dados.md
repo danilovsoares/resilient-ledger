@@ -35,6 +35,7 @@ erDiagram
         timestamptz published_at
         int retry_count
         varchar last_error
+        timestamptz dead_lettered_at
     }
 ```
 
@@ -72,11 +73,14 @@ não crie dois lançamentos (ver `UnitOfWork.IsUniqueIdempotencyKeyViolation` em
 | `causation_id` | `uuid` | Origem imediata do evento — no fluxo atual, igual ao `correlation_id`, pois o evento nasce diretamente do request HTTP (ver [observability.md](../observability.md)). |
 | `occurred_at` | `timestamptz` | Quando a linha foi gravada (mesma transação do lançamento). |
 | `published_at` | `timestamptz`, nulo | Preenchido pelo `OutboxPublisherService` após confirmação de publicação. `NULL` = pendente. |
-| `retry_count` | `int` | Incrementado a cada tentativa de publicação malsucedida. |
+| `retry_count` | `int` | Incrementado a cada tentativa de publicação malsucedida (transitória ou permanente). |
 | `last_error` | `varchar(2000)`, nulo | Última mensagem de erro de publicação, para diagnóstico. |
+| `dead_lettered_at` | `timestamptz`, nulo | Preenchido pelo `OutboxPublisherService` quando a falha é permanente (tipo de evento desconhecido ou payload corrompido — ver [resiliency-and-messaging.md](../resiliency-and-messaging.md)). `NULL` = ainda elegível para publicação automática. |
 
-Índice: não-único em `published_at` (`ix_outbox_messages_published_at`), usado pelo Outbox
-Publisher para encontrar rapidamente as mensagens pendentes (`WHERE published_at IS NULL`).
+Índices: não-único em `published_at` (`ix_outbox_messages_published_at`) e em
+`dead_lettered_at` (`ix_outbox_messages_dead_lettered_at`), usados pelo Outbox Publisher para
+encontrar rapidamente as mensagens pendentes (`WHERE published_at IS NULL AND
+dead_lettered_at IS NULL`).
 
 > `causation_id` não está na lista mínima de colunas do desafio, mas foi incluído porque o
 > ADR-005 exige propagar CausationId ponta a ponta — sem essa coluna a Outbox não teria como

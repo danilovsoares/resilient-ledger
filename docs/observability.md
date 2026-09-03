@@ -90,8 +90,13 @@ configurado (ex.: para um Collector ou diretamente para o Datadog Agent em produ
   `http.server.request.duration`.
 - **Customizadas**:
   - `verity.ledger.outbox.pending` (gauge, `Verity.Ledger.Infrastructure.Telemetry.LedgerMetrics`):
-    quantidade de mensagens em `outbox_messages` aguardando publicação — a base para o alerta de
-    "Outbox acumulada" (ver [ADR-003](adr/003-transactional-outbox-e-inbox.md)).
+    quantidade de mensagens em `outbox_messages` aguardando publicação (`published_at IS NULL
+    AND dead_lettered_at IS NULL`) — a base para o alerta de "Outbox acumulada" (ver
+    [ADR-003](adr/003-transactional-outbox-e-inbox.md)). Mensagens dead-lettered (falha
+    permanente — tipo de evento desconhecido ou payload corrompido, ver
+    [resiliency-and-messaging.md](resiliency-and-messaging.md)) não entram nesta contagem; hoje
+    só ficam visíveis via log `Error` do `OutboxPublisherService` no momento em que acontecem —
+    não há métrica/alerta dedicado para elas.
   - `verity.dailybalance.cache.hits` / `verity.dailybalance.cache.misses` (contadores,
     `Verity.DailyBalance.Infrastructure.Telemetry.DailyBalanceCacheMetrics`): a razão de cache
     hit (`hits / (hits + misses)`) é derivada destes dois contadores pelo backend de

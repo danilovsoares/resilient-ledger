@@ -80,14 +80,19 @@ sequenceDiagram
 Passos:
 
 1. `OutboxPublisherService` (BackgroundService no processo da Ledger API) varre
-   periodicamente `outbox_messages` em busca de linhas com `published_at IS NULL`, em lotes
-   (`OutboxPublisher:BatchSize`, padrão 50).
+   periodicamente `outbox_messages` em busca de linhas com `published_at IS NULL AND
+   dead_lettered_at IS NULL`, em lotes (`OutboxPublisher:BatchSize`, padrão 50).
 2. Para cada mensagem, desserializa o payload conforme o `Type` gravado e publica via
    `IPublishEndpoint.Publish`, propagando `CorrelationId` e `CausationId` da linha da Outbox
    para o contexto da mensagem.
-3. Em caso de sucesso, marca `published_at`. Em caso de falha (ex.: RabbitMQ indisponível),
-   incrementa `retry_count` e registra `last_error`, mas **não** derruba o processo nem
-   bloqueia as demais mensagens do lote — a mensagem volta a ser candidata no próximo ciclo.
+3. Em caso de sucesso, marca `published_at`. Em caso de falha transitória (ex.: RabbitMQ
+   indisponível), incrementa `retry_count` e registra `last_error`, mas **não** derruba o
+   processo nem bloqueia as demais mensagens do lote — a mensagem volta a ser candidata no
+   próximo ciclo, sem limite de tentativas.
+4. Em caso de falha permanente (tipo de evento não registrado, ou payload que não
+   desserializa) — retentar nunca vai resolver, já que nada muda entre ciclos —, a mensagem é
+   marcada `dead_lettered_at` já na primeira ocorrência e para de ser selecionada. Detalhes em
+   [resiliency-and-messaging.md](../resiliency-and-messaging.md).
 
 ## 3. Consumo idempotente e atualização de saldo
 

@@ -26,22 +26,33 @@ vez. Isso é obtido por deduplicação transacional (Inbox), não pelo broker.
 ## Outbox: publicador, tentativas e marca de publicação
 
 `OutboxPublisherService` (BackgroundService na Ledger API) faz polling de
-`outbox_messages WHERE published_at IS NULL` a cada 2 segundos (padrão,
+`outbox_messages WHERE published_at IS NULL AND dead_lettered_at IS NULL` a cada 2 segundos (padrão,
 `OutboxPublisher:PollingInterval`), em lotes de até 50 mensagens
 (`OutboxPublisher:BatchSize`). Para cada mensagem:
 
 1. Desserializa o payload conforme o `Type` gravado.
 2. Publica via `IPublishEndpoint.Publish`, propagando `CorrelationId`/`CausationId`.
 3. Em sucesso, marca `published_at = now()`.
-4. Em falha (ex.: RabbitMQ indisponível), incrementa `retry_count`, grava `last_error` e
-   **deixa a mensagem pendente** — ela será tentada novamente no próximo ciclo,
-   indefinidamente, até ser publicada com sucesso. Não há limite de tentativas nem DLQ do
-   lado do publicador: a Outbox é, por definição, a garantia de que o evento *será*
-   publicado eventualmente; abandonar essa tentativa violaria essa garantia.
+4. Em falha **transitória** (ex.: RabbitMQ indisponível), incrementa `retry_count`, grava
+   `last_error` e **deixa a mensagem pendente** — ela será tentada novamente no próximo
+   ciclo, indefinidamente, até ser publicada com sucesso. Não há limite de tentativas para
+   esse caso: a Outbox é, por definição, a garantia de que o evento *será* publicado
+   eventualmente; abandonar essa tentativa violaria essa garantia.
+5. Em falha **permanente** (tipo de evento não registrado em `OutboxEventTypeRegistry`, ou
+   payload que não desserializa) — um erro que retentar nunca vai resolver, porque nada muda
+   entre ciclos —, a mensagem é marcada como dead-lettered (`dead_lettered_at = now()`) já na
+   primeira ocorrência e para de ser selecionada pelo publicador. A distinção entre os dois
+   casos é feita pelo tipo da exceção (`InvalidOperationException`/`JsonException` na etapa de
+   resolução do tipo e desserialização = permanente; qualquer falha na chamada de `Publish` em
+   si = transitória), não por um contador de tentativas — um teto genérico de `retry_count`
+   marcaria como permanente uma indisponibilidade prolongada do broker, que é exatamente o
+   cenário que este mecanismo existe para tolerar.
 
 Isso é observável diretamente: `SELECT count(*) FROM outbox_messages WHERE published_at IS
-NULL` mostra o backlog pendente, e é a base da métrica `verity.ledger.outbox.pending`
-(ver [observability.md](observability.md)).
+NULL AND dead_lettered_at IS NULL` mostra o backlog pendente, e é a base da métrica
+`verity.ledger.outbox.pending` (ver [observability.md](observability.md)). Mensagens
+dead-lettered (`dead_lettered_at IS NOT NULL`) requerem investigação manual — ver `last_error`
+na própria linha — e não são reprocessadas automaticamente.
 
 ## Inbox: deduplicação por EventId
 

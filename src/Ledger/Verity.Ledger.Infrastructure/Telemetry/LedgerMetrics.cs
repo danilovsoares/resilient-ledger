@@ -33,7 +33,9 @@ public sealed class LedgerMetrics : IDisposable
     {
         using var scope = _scopeFactory.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<LedgerDbContext>();
-        var count = dbContext.OutboxMessages.LongCount(m => m.PublishedAt == null);
+        // Exclui as dead-lettered: essas não fazem mais parte do backlog que o publicador está
+        // tentando drenar, ficariam inflando esta métrica para sempre (ver OutboxPublisherService).
+        var count = dbContext.OutboxMessages.LongCount(m => m.PublishedAt == null && m.DeadLetteredAt == null);
         yield return new Measurement<long>(count);
     }
 

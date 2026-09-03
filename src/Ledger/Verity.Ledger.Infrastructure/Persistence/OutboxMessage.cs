@@ -15,4 +15,13 @@ public sealed class OutboxMessage
     public DateTimeOffset? PublishedAt { get; set; }
     public int RetryCount { get; set; }
     public string? LastError { get; set; }
+
+    /// <summary>
+    /// Marcada quando a falha é permanente (tipo de evento desconhecido ou payload corrompido —
+    /// ver <see cref="OutboxPublisherService"/>): retentar não vai resolver, então a mensagem
+    /// para de ser selecionada para publicação automática e fica visível para investigação
+    /// manual. Falhas transitórias (ex.: broker indisponível) nunca marcam este campo — essas
+    /// continuam sendo retentadas indefinidamente, sem limite (ADR-002/ADR-003).
+    /// </summary>
+    public DateTimeOffset? DeadLetteredAt { get; set; }
 }

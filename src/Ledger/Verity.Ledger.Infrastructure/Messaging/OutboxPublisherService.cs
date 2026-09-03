@@ -13,8 +13,11 @@ namespace Verity.Ledger.Infrastructure.Messaging;
 /// Publica de forma assíncrona as mensagens pendentes da Outbox no barramento (RabbitMQ via
 /// MassTransit). Roda em ciclo de polling; cada mensagem só é marcada como publicada
 /// (<c>published_at</c>) após confirmação do <see cref="IPublishEndpoint"/>. Se o broker estiver
-/// indisponível, a mensagem permanece pendente e é reprocessada no próximo ciclo — o Ledger
-/// continua aceitando novos lançamentos normalmente enquanto isso (ADR-002).
+/// indisponível, a mensagem permanece pendente e é reprocessada no próximo ciclo, sem limite de
+/// tentativas — o Ledger continua aceitando novos lançamentos normalmente enquanto isso
+/// (ADR-002). Já uma falha permanente (tipo de evento desconhecido ou payload corrompido) marca
+/// a mensagem como dead-lettered (<c>dead_lettered_at</c>) na primeira ocorrência, para não
+/// reprocessar para sempre algo que retry nunca vai resolver.
 /// </summary>
 public sealed class OutboxPublisherService(
     IServiceScopeFactory scopeFactory,
@@ -54,7 +57,7 @@ public sealed class OutboxPublisherService(
         var publishEndpoint = scope.ServiceProvider.GetRequiredService<IPublishEndpoint>();
 
         var pending = await dbContext.OutboxMessages
-            .Where(m => m.PublishedAt == null)
+            .Where(m => m.PublishedAt == null && m.DeadLetteredAt == null)
             .OrderBy(m => m.OccurredAt)
             .Take(_options.BatchSize)
             .ToListAsync(cancellationToken);
@@ -66,12 +69,30 @@ public sealed class OutboxPublisherService(
 
         foreach (var message in pending)
         {
+            Type eventType;
+            object payload;
             try
             {
-                var eventType = OutboxEventTypeRegistry.Resolve(message.Type);
-                var payload = JsonSerializer.Deserialize(message.Payload, eventType)
+                eventType = OutboxEventTypeRegistry.Resolve(message.Type);
+                payload = JsonSerializer.Deserialize(message.Payload, eventType)
                     ?? throw new InvalidOperationException("Payload de outbox vazio ou inválido.");
+            }
+            catch (Exception ex) when (IsPermanentFailure(ex))
+            {
+                // Marca como dead-lettered para não reprocessar para sempre (ver IsPermanentFailure);
+                // as demais mensagens do lote seguem normalmente.
+                message.RetryCount += 1;
+                message.LastError = ex.Message;
+                message.DeadLetteredAt = DateTimeOffset.UtcNow;
 
+                logger.LogError(ex,
+                    "Mensagem de outbox {OutboxMessageId} tem falha permanente (tipo de evento ou payload inválido) e não será mais reprocessada automaticamente. Requer investigação manual.",
+                    message.Id);
+                continue;
+            }
+
+            try
+            {
                 await publishEndpoint.Publish(payload, eventType, context =>
                 {
                     // MessageId é a identidade da mensagem no nível de transporte (MassTransit),
@@ -92,6 +113,8 @@ public sealed class OutboxPublisherService(
             }
             catch (Exception ex)
             {
+                // Falha transitória (ex.: broker indisponível): sem limite de tentativas — a
+                // mensagem continua pendente e será retentada no próximo ciclo (ADR-002/ADR-003).
                 message.RetryCount += 1;
                 message.LastError = ex.Message;
 
@@ -103,4 +126,11 @@ public sealed class OutboxPublisherService(
 
         await dbContext.SaveChangesAsync(cancellationToken);
     }
+
+    /// <summary>
+    /// Falha permanente: nem o tipo do evento nem o payload gravado vão mudar sozinhos entre
+    /// ciclos, então retentar nunca vai resolver. Qualquer outra exceção (tipicamente
+    /// conectividade com o broker) é tratada como transitória, sem limite de tentativas.
+    /// </summary>
+    private static bool IsPermanentFailure(Exception ex) => ex is InvalidOperationException or JsonException;
 }

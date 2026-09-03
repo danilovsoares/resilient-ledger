@@ -49,8 +49,11 @@ atualização de `daily_balances`.
   isso duplique o efeito no saldo: a Inbox garante que a aplicação da mudança de estado
   aconteça **no máximo uma vez por EventId** — o que chamamos de *exactly-once effect*, não
   de exactly-once delivery (o RabbitMQ nunca garante isso, e não afirmamos que garanta).
-- O padrão é observável: `outbox_messages.published_at IS NULL` mostra exatamente o que está
-  pendente de publicação; `processed_messages` mostra exatamente o que já foi aplicado.
+- O padrão é observável: `outbox_messages.published_at IS NULL AND dead_lettered_at IS NULL`
+  mostra exatamente o que está pendente de publicação (mensagens com falha permanente ficam
+  marcadas em `dead_lettered_at` e saem dessa contagem — ver
+  [resiliency-and-messaging.md](../resiliency-and-messaging.md)); `processed_messages` mostra
+  exatamente o que já foi aplicado.
 
 ## Consequências negativas e mitigações
 
