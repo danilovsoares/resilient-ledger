@@ -147,16 +147,28 @@ Respostas:
 (preenchido quando este lançamento já foi estornado por outro — calculado em toda consulta,
 não armazenado como estado mutável).
 
-### `GET /api/v1/transactions?date=yyyy-MM-dd`
+### `GET /api/v1/transactions?date=yyyy-MM-dd&page=&pageSize=`
 
-Consulta os lançamentos de uma data de negócio (UTC).
+Consulta paginada dos lançamentos de uma data de negócio (UTC), ordenados por `occurredAt`.
 
 | | |
 |---|---|
 | Autenticação | `Authorization: Bearer <token>` (obrigatório) |
 | Query param | `date` (obrigatório, formato `yyyy-MM-dd`) |
+| Query param | `page` (opcional, padrão `1`; valores `< 1` são normalizados para `1`) |
+| Query param | `pageSize` (opcional, padrão `10`; limitado ao intervalo `[1, 10]` — o servidor nunca retorna mais de 10 itens por página, mesmo se o cliente pedir mais) |
 
-Resposta 200 OK: array de `TransactionDto` (pode ser vazio), ordenado por `occurredAt`.
+Resposta 200 OK (`PagedResult<TransactionDto>`):
+
+```json
+{
+  "items": [ /* TransactionDto[], pode ser vazio */ ],
+  "page": 1,
+  "pageSize": 10,
+  "totalCount": 23,
+  "totalPages": 3
+}
+```
 
 ## Daily Balance API
 

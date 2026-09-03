@@ -121,8 +121,9 @@ não há como o mesmo evento incrementar o saldo duas vezes mesmo sob concorrên
 |---|---|---|---|
 | Daily Balance indisponível | Ledger continua aceitando lançamentos normalmente | Outbox + broker (sem chamada síncrona) | Restaurar o consumidor e acompanhar o backlog da fila |
 | RabbitMQ indisponível | Lançamento confirmado ao cliente; evento fica pendente na Outbox | Outbox Publisher com retry indefinido | Monitorar `outbox_messages` não publicadas (métrica `verity.ledger.outbox.pending`) |
+| Evento de outbox com tipo desconhecido ou payload corrompido | Não bloqueia as demais mensagens do mesmo lote nem os próximos ciclos | Classificação de falha permanente → `dead_lettered_at` já na 1ª tentativa | Ver procedimento 2 em [operational-runbook.md](operational-runbook.md) |
 | Worker cai antes do ACK | Mensagem pode ser reentregue | Inbox idempotente (`processed_messages`) | Nenhuma correção manual esperada |
-| Mensagem inválida/malformada | Não bloqueia a fila principal | Retry limitado (5 tentativas) + DLQ (`_error`) | Corrigir a causa raiz e reprocessar a partir da DLQ |
+| Mensagem inválida/malformada (consumo) | Não bloqueia a fila principal | Retry limitado (5 tentativas) + DLQ (`_error`) | Corrigir a causa raiz e reprocessar a partir da DLQ |
 | Redis indisponível | Consulta de saldo mais lenta, mas funcional | Fallback ao PostgreSQL (`RedisDailyBalanceCache`) | Restaurar o Redis e observar a latência da consulta voltar ao normal |
 
 ## Referências

@@ -40,6 +40,9 @@ decisão de arquitetura interna (ver [ADR-001](../adr/001-separacao-de-contextos
 2. Consultar os lançamentos de uma data de negócio.
 3. Consultar o saldo consolidado (total de créditos, total de débitos, saldo) de uma data de
    negócio.
+4. Estornar um lançamento já registrado — via um novo lançamento reverso (tipo oposto, mesmo
+   valor), nunca por edição do original (ver "Premissas" abaixo e
+   [ADR-004](../adr/004-consistencia-eventual-e-ordenacao.md)).
 
 ## Requisitos não funcionais e metas adotadas
 

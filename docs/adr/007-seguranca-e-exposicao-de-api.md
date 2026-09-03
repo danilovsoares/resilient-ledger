@@ -77,8 +77,9 @@ escopo documentada, não uma lacuna.
 ## Consequências negativas e mitigações
 
 - **O endpoint de emissão de token de desenvolvimento não deve, em hipótese alguma, existir
-  em produção.** Mitigação: registrado apenas quando `app.Environment.IsDevelopment()` é
-  verdadeiro (`Program.cs` de ambos os serviços) — nunca mapeado em outros ambientes.
+  em produção.** Mitigação: existe apenas na Ledger API (a Daily Balance API não o expõe) e é
+  registrado apenas quando `app.Environment.IsDevelopment()` é verdadeiro (`Program.cs` da
+  Ledger API) — nunca mapeado em outros ambientes.
 - **Rate limiting por IP é ingênuo** atrás de um proxy/load balancer que mascare o IP real do
   cliente (todos os requests pareceriam vir do mesmo IP). Mitigação: registrado como limitação
   conhecida; em produção, a configuração correta de `X-Forwarded-For`/`ForwardedHeaders` (ou

@@ -29,6 +29,7 @@ public static class DependencyInjection
         services.AddSingleton(configuration.GetSection(DefaultUserSeedOptions.SectionName).Get<DefaultUserSeedOptions>() ?? new DefaultUserSeedOptions());
 
         services.Configure<OutboxPublisherOptions>(configuration.GetSection(OutboxPublisherOptions.SectionName));
+        services.AddSingleton<IOutboxEventTypeRegistry, OutboxEventTypeRegistry>();
         services.AddHostedService<OutboxPublisherService>();
 
         services.AddSingleton<LedgerMetrics>();

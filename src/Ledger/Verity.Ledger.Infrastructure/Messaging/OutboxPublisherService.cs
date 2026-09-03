@@ -22,6 +22,7 @@ namespace Verity.Ledger.Infrastructure.Messaging;
 public sealed class OutboxPublisherService(
     IServiceScopeFactory scopeFactory,
     IOptions<OutboxPublisherOptions> options,
+    IOutboxEventTypeRegistry eventTypeRegistry,
     ILogger<OutboxPublisherService> logger) : BackgroundService
 {
     private readonly OutboxPublisherOptions _options = options.Value;
@@ -73,7 +74,7 @@ public sealed class OutboxPublisherService(
             object payload;
             try
             {
-                eventType = OutboxEventTypeRegistry.Resolve(message.Type);
+                eventType = eventTypeRegistry.Resolve(message.Type);
                 payload = JsonSerializer.Deserialize(message.Payload, eventType)
                     ?? throw new InvalidOperationException("Payload de outbox vazio ou inválido.");
             }

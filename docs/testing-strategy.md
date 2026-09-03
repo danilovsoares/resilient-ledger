@@ -102,7 +102,7 @@ dotnet test Verity.slnx -c Release --collect:"XPlat Code Coverage" --results-dir
 reportgenerator -reports:"coverage-results/**/coverage.cobertura.xml" -targetdir:"coverage-report" -reporttypes:Html
 ```
 
-Execução de referência (72 testes, todos passando): **95,1% de cobertura de linha**, 95,2% de
+Execução de referência (76 testes, todos passando): **95,5% de cobertura de linha**, 95,6% de
 cobertura de método. Domínio e Application dos dois serviços estão em 100%; os pontos abaixo de
 100% concentram-se em código de composição/infraestrutura de baixo risco — `Program.cs`
 (caminhos de inicialização condicionais), health checks (exercitados manualmente via
