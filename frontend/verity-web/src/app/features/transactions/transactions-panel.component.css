@@ -20,12 +20,12 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  padding: 1.5rem;
+  padding: 1.15rem 1.5rem;
   min-width: 0;
 }
 
 .panel h2 {
-  margin: 0 0 1.1rem;
+  margin: 0 0 0.85rem;
   font-size: 1.05rem;
   color: var(--color-primary-deep);
 }
@@ -40,7 +40,7 @@
   display: flex;
   align-items: flex-end;
   gap: 0.85rem;
-  margin-bottom: 1.25rem;
+  margin-bottom: 0.85rem;
   flex-wrap: wrap;
 }
 
@@ -113,8 +113,27 @@ button:disabled {
   color: var(--color-text-muted);
 }
 
+/* Altura fixa = cabeçalho + 10 linhas (pageSize), a mesma independentemente de quantos
+   lançamentos a data selecionada tem — evita que o card "salte" de tamanho ao trocar de data
+   (ver transactions-panel.component.ts: pageSize = 10). */
+.list-body {
+  min-height: 26.5rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.list-placeholder {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+}
+
 .table-scroll {
   overflow-x: auto;
+  overflow-y: auto;
+  max-height: 26.5rem;
 }
 
 table {
@@ -147,7 +166,7 @@ td:nth-child(5) {
 
 th {
   text-align: left;
-  padding: 0.6rem 0.75rem;
+  padding: 0.4rem 0.75rem;
   font-size: 0.72rem;
   font-weight: 700;
   color: var(--color-text-muted);
@@ -158,10 +177,17 @@ th {
 
 td {
   text-align: left;
-  padding: 0.75rem;
+  padding: 0.45rem 0.75rem;
   border-bottom: 1px solid var(--color-border);
-  overflow-wrap: break-word;
   vertical-align: middle;
+}
+
+/* Uma linha só por lançamento, com reticências — mantém toda linha da tabela com a mesma
+   altura (texto completo disponível via title="" no hover). */
+.description-cell {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 tbody tr:hover {
@@ -229,7 +255,13 @@ tbody tr:last-child td {
   align-items: center;
   justify-content: center;
   gap: 1rem;
-  margin-top: 1.25rem;
+  margin-top: 0.85rem;
+}
+
+/* Mantém o espaço reservado (visibility, não display) mesmo quando há só 1 página — evita
+   que o card mude de altura ao trocar para uma data com poucos lançamentos. */
+.pagination-hidden {
+  visibility: hidden;
 }
 
 .pagination button {

@@ -57,58 +57,58 @@
       <p class="error">{{ cancelError() }}</p>
     }
 
-    @if (loadingList()) {
-      <p>Carregando…</p>
-    } @else if (transactions().length === 0) {
-      <p class="muted">Nenhum lançamento nesta data.</p>
-    } @else {
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Tipo</th>
-              <th>Valor</th>
-              <th>Ocorrido em</th>
-              <th>Descrição</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (transaction of transactions(); track transaction.id) {
+    <div class="list-body">
+      @if (loadingList()) {
+        <p class="list-placeholder">Carregando…</p>
+      } @else if (transactions().length === 0) {
+        <p class="list-placeholder muted">Nenhum lançamento nesta data.</p>
+      } @else {
+        <div class="table-scroll">
+          <table>
+            <thead>
               <tr>
-                <td>
-                  <span [class]="transaction.type === TransactionType.Credit ? 'credit' : 'debit'">
-                    {{ transaction.type === TransactionType.Credit ? 'Crédito' : 'Débito' }}
-                  </span>
-                </td>
-                <td>{{ transaction.amount | number: '1.2-2' }}</td>
-                <td>{{ transaction.occurredAt | date: 'dd/MM/yyyy HH:mm' }}</td>
-                <td>{{ transaction.description || '—' }}</td>
-                <td>
-                  <span class="actions">
-                    @if (transaction.reversedByTransactionId) {
-                      <span class="reversed-tag">Estornado</span>
-                    } @else if (cancellingId() === transaction.id) {
-                      <span class="muted">Estornando…</span>
-                    } @else {
-                      <button type="button" class="cancel-button" (click)="requestCancel(transaction)">Estornar</button>
-                    }
-                  </span>
-                </td>
+                <th>Tipo</th>
+                <th>Valor</th>
+                <th>Ocorrido em</th>
+                <th>Descrição</th>
+                <th>Ações</th>
               </tr>
-            }
-          </tbody>
-        </table>
-      </div>
-
-      @if (totalPages() > 1) {
-        <div class="pagination">
-          <button type="button" (click)="previousPage()" [disabled]="page() === 1">Anterior</button>
-          <span class="muted">Página {{ page() }} de {{ totalPages() }}</span>
-          <button type="button" (click)="nextPage()" [disabled]="page() === totalPages()">Próxima</button>
+            </thead>
+            <tbody>
+              @for (transaction of transactions(); track transaction.id) {
+                <tr>
+                  <td>
+                    <span [class]="transaction.type === TransactionType.Credit ? 'credit' : 'debit'">
+                      {{ transaction.type === TransactionType.Credit ? 'Crédito' : 'Débito' }}
+                    </span>
+                  </td>
+                  <td>{{ transaction.amount | number: '1.2-2' }}</td>
+                  <td>{{ transaction.occurredAt | date: 'dd/MM/yyyy HH:mm' }}</td>
+                  <td class="description-cell" [title]="transaction.description || ''">{{ transaction.description || '—' }}</td>
+                  <td>
+                    <span class="actions">
+                      @if (transaction.reversedByTransactionId) {
+                        <span class="reversed-tag">Estornado</span>
+                      } @else if (cancellingId() === transaction.id) {
+                        <span class="muted">Estornando…</span>
+                      } @else {
+                        <button type="button" class="cancel-button" (click)="requestCancel(transaction)">Estornar</button>
+                      }
+                    </span>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
         </div>
       }
-    }
+    </div>
+
+    <div class="pagination" [class.pagination-hidden]="totalPages() <= 1">
+      <button type="button" (click)="previousPage()" [disabled]="page() === 1">Anterior</button>
+      <span class="muted">Página {{ page() }} de {{ totalPages() }}</span>
+      <button type="button" (click)="nextPage()" [disabled]="page() === totalPages()">Próxima</button>
+    </div>
   </section>
 </div>
 

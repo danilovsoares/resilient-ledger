@@ -75,7 +75,7 @@ button {
 
 /* Cabeçalho compartilhado por cada página do menu lateral. */
 .page-header {
-  margin-bottom: 2rem;
+  margin-bottom: 0.85rem;
 }
 
 .eyebrow {
