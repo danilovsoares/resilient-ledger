@@ -7,6 +7,20 @@ crédito/débito e consulta o saldo consolidado por dia. O requisito central é 
 lançamentos nunca fique indisponível se o serviço de consolidado cair**, e que a consulta de
 saldo suporte 50 requisições por segundo com no máximo 5% de erro.
 
+## O que a aplicação faz
+
+A aplicação Web (`/lancamentos` e `/saldo`, atrás de login) cobre:
+
+- **Registrar um lançamento** de crédito ou débito (valor, data/hora de ocorrência, descrição
+  opcional).
+- **Consultar os lançamentos de uma data**, paginados (10 por página).
+- **Estornar um lançamento** — nunca edita ou apaga o original; registra um novo lançamento
+  reverso (mesmo valor, tipo oposto). O lançamento original permanece imutável e passa a exibir
+  "Estornado" na lista.
+- **Consultar o saldo diário consolidado** (créditos, débitos, saldo) de qualquer data, que se
+  atualiza de forma assíncrona após cada novo lançamento (consistência eventual — ver
+  [ADR-004](docs/adr/004-consistencia-eventual-e-ordenacao.md)).
+
 A documentação arquitetural completa está em [`docs/`](docs/) — comece por
 [`docs/architecture/01-contexto-e-objetivos.md`](docs/architecture/01-contexto-e-objetivos.md).
 
@@ -95,12 +109,20 @@ TOKEN=$(curl -s -X POST http://localhost:5080/api/v1/auth/login \
   -d '{"username":"comerciante","password":"verity123"}' \
   | sed -E 's/.*"accessToken":"([^"]+)".*/\1/')
 
-# Registrar um lançamento
+# Registrar um lançamento (a resposta traz o "id" usado abaixo para estornar)
 curl -s -i -X POST http://localhost:5080/api/v1/transactions \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: exemplo-001" \
   -d '{"type":1,"amount":150.50,"occurredAt":"2026-09-02T10:00:00Z","description":"Venda balcao"}'
+
+# Consultar os lançamentos de uma data (paginado, 10 por página)
+curl -s "http://localhost:5080/api/v1/transactions?date=2026-09-02&page=1&pageSize=10" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Estornar um lançamento (registra um novo lançamento reverso; o original nunca é editado)
+curl -s -i -X POST http://localhost:5080/api/v1/transactions/{id}/cancel \
+  -H "Authorization: Bearer $TOKEN"
 
 # Consultar o saldo consolidado do dia (após alguns segundos, consistência eventual)
 curl -s "http://localhost:5081/api/v1/daily-balances/2026-09-02" \
