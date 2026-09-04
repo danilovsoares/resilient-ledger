@@ -101,6 +101,37 @@ comandos/queries de Application e DTOs de Application em respostas HTTP.
 - **DailyBalance.Worker**: não tem controllers de negócio — apenas os endpoints de health
   check (`/health/live`, `/health/ready`) e o host do consumidor MassTransit em background.
 
+## Princípios SOLID aplicados
+
+Não como rótulo — cada um abaixo aponta para uma decisão concreta do código, não uma afirmação
+genérica:
+
+- **SRP (responsabilidade única)**: cada caso de uso é uma classe própria
+  (`RegisterTransactionHandler`, `CancelTransactionHandler`, `GetTransactionsByDateHandler`...),
+  em vez de um "TransactionService" que acumulasse registro, estorno, consulta e paginação. Um
+  motivo de mudança por classe.
+- **OCP (aberto/fechado)**: `OutboxEventTypeRegistry` resolve o tipo CLR de um evento a partir do
+  nome gravado em `outbox_messages.type` via um dicionário — adicionar um novo tipo de evento de
+  integração é estender esse mapa, não alterar `OutboxPublisherService`.
+- **ISP (segregação de interface)**: abstrações de Application são pequenas e focadas por
+  responsabilidade (`ITransactionRepository`, `IOutboxWriter`, `IUnitOfWork`,
+  `IPasswordHasher`, `IUserRepository` no Ledger; `IDailyBalanceRepository`,
+  `IProcessedMessageStore`, `IDailyBalanceCache`, `IUnitOfWork` no Daily Balance) — nenhuma
+  interface "gorda" que force um handler a depender de métodos que não usa.
+- **DIP (inversão de dependência)**: todo acesso a infraestrutura em Application passa por uma
+  interface implementada em Infrastructure, nunca o contrário (ver "Estrutura de projetos"
+  acima). Um exemplo concreto de correção real, não apenas teórica: `OutboxPublisherService`
+  originalmente chamava `OutboxEventTypeRegistry.Resolve(...)` como método estático — um acesso
+  direto a um tipo concreto de Infrastructure a partir de um `BackgroundService` também de
+  Infrastructure, mas que tornava a classe impossível de testar com um registry diferente e
+  violava DIP mesmo dentro da própria camada. A correção introduziu `IOutboxEventTypeRegistry`,
+  injetada via `IServiceScopeFactory`/DI (`AddSingleton<IOutboxEventTypeRegistry,
+  OutboxEventTypeRegistry>()`), e o publisher passou a depender só da abstração.
+- **LSP (substituição de Liskov)**: não é fortemente exercitado aqui — o código evita hierarquias
+  de herança profundas propositalmente (composição e interfaces pequenas em vez de
+  especialização), então não há uma hierarquia de tipos onde uma violação de LSP seria sequer
+  possível de cometer.
+
 ## Referências
 
 - [05 — Fluxos principais](05-fluxos-principais.md)

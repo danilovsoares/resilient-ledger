@@ -70,6 +70,36 @@ ambiente que não sobrescreva) mantém `SigningKey` vazio propositalmente — um
 validação de token falhar de forma segura (nunca aceita um token "por acidente" em produção por
 falta de configuração).
 
+## Segurança no frontend (Angular)
+
+O escopo acima cobre a superfície pública das APIs; esta seção cobre as decisões de segurança
+tomadas no lado do navegador (`frontend/verity-web/`), que protegem contra classes de ataque
+diferentes (XSS, clickjacking, open redirect) — o backend continua sendo a única autoridade real
+de autorização (`[Authorize]` em cada endpoint); nada aqui substitui isso.
+
+- **Token em `sessionStorage`, não `localStorage`** (`AuthService`): um token roubado via XSS em
+  `localStorage` sobrevive indefinidamente (persiste entre abas e reinícios do navegador); em
+  `sessionStorage`, o token morre com a aba. Reduz a janela de exposição em caso de XSS, mas não
+  a elimina — a mitigação real contra XSS é a CSP abaixo, não o local de armazenamento.
+- **Content-Security-Policy e cabeçalhos de segurança** (`nginx.conf`, aplicados a toda resposta
+  do container `web`): `script-src 'self'` bloqueia execução de script injetado inline ou de
+  origem externa; `object-src 'none'` e `frame-ancestors 'none'` bloqueiam plugins e
+  embedding em `<iframe>` de terceiros (proteção contra clickjacking, substituindo o
+  `X-Frame-Options: DENY` também presente); `connect-src` restringe quais origens o app pode
+  chamar via `fetch`/`XMLHttpRequest` às duas APIs conhecidas — um script injetado não conseguiria
+  exfiltrar dados para um domínio arbitrário mesmo que rodasse.
+- **Expiração de sessão client-side** (`AuthService.scheduleExpiry`): a UI decodifica o claim
+  `exp` do JWT (sem validar assinatura — só para fins de UX local) e agenda o logout automático
+  exatamente quando o token expira, evitando que a casca autenticada continue renderizada com um
+  token já morto. Isto é conveniência de interface, não uma fronteira de segurança: o backend
+  valida a expiração de verdade a cada requisição, independentemente do que a UI decidiu localmente.
+- **Proteção contra open redirect no `returnUrl`** (`LoginPageComponent.safeReturnUrl`,
+  `authGuard`): o guard de rota redireciona para `/login?returnUrl=<rota original>` quando não há
+  sessão; no login, só um caminho interno de um único segmento inicial (`/x...`) é aceito como
+  `returnUrl` — uma entrada como `//evil.com` (que o navegador trataria como URL absoluta de
+  outro host) cai no padrão `/lancamentos`, para que um link de login distribuído com esse
+  parâmetro manipulado não vire um redirecionamento para fora da aplicação.
+
 ## Validação de payload e tratamento padronizado de erros
 
 - `RegisterTransactionValidator` (FluentValidation) valida o comando antes de qualquer

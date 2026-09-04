@@ -29,7 +29,22 @@ entre eles é assíncrona, via eventos (ver [ADR-002](002-integracao-assincrona-
   escrita junto.
 - **Dois serviços separados** (escolhida): maior complexidade operacional (dois deploys,
   dois bancos, um broker de mensagens, necessidade de lidar com consistência eventual) em
-  troca de isolamento de falha real e escalabilidade independente entre escrita e leitura.
+  troca de isolamento de falha real e escalabilidade independente entre escrita e leitura. Na
+  prática, dois microsserviços por contexto de negócio — não uma decomposição maior em
+  microsserviços por entidade/operação, que adicionaria complexidade sem benefício de
+  isolamento adicional para este domínio.
+- **SOA com barramento corporativo (ESB)**: descartada por desproporcional ao problema — um ESB
+  centralizado (orquestração, transformação de mensagens, roteamento complexo) resolve
+  integração entre muitos sistemas heterogêneos de uma organização; aqui há dois serviços e um
+  contrato de evento único, onde RabbitMQ ponto-a-ponto (ver [ADR-002](002-integracao-assincrona-por-eventos.md))
+  já é suficiente, sem o custo de operar e governar um barramento.
+- **Serverless (functions)**: descartada para o caminho de escrita — o Ledger precisa de conexão
+  persistente ao Postgres em uma transação (lançamento + Outbox atômicos) e um
+  `BackgroundService` de longa duração (`OutboxPublisherService`) fazendo polling, um encaixe
+  ruim para o modelo de execução efêmera de functions. Seria uma opção razoável para o consumidor
+  do Daily Balance (reagir a uma mensagem da fila é um caso de uso natural de function), mas
+  manter os dois lados do pipeline no mesmo modelo de execução (processo `.NET` de longa duração)
+  simplifica observabilidade e deployment para o tamanho atual da solução.
 
 ## Consequências positivas
 

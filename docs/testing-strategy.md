@@ -8,20 +8,25 @@ provisionado manualmente.
 
 ## Escopo
 
-Quatro projetos de teste, xUnit + FluentAssertions:
+Quatro projetos de teste .NET (xUnit + FluentAssertions), mais testes de frontend (Vitest) e
+uma suíte E2E (Playwright):
 
 ```text
 tests/
 ├── Verity.Ledger.UnitTests              # Domain, Application, GlobalExceptionHandler, health checks
 ├── Verity.Ledger.IntegrationTests       # Api + Postgres real; Messaging/ roda contra RabbitMQ real
 ├── Verity.DailyBalance.UnitTests        # Domain, Application, GlobalExceptionHandler
-└── Verity.DailyBalance.IntegrationTests # Api + Postgres/Redis reais; Messaging/ roda contra RabbitMQ real
+├── Verity.DailyBalance.IntegrationTests # Api + Postgres/Redis reais; Messaging/ roda contra RabbitMQ real
+└── e2e/                                 # Playwright — stack real via docker-compose (ver seção "E2E")
+frontend/verity-web/src/app/**/*.spec.ts # Vitest — lógica de autenticação/guards do Angular isolada
 ```
 
 ## Pirâmide de testes
 
-- **Testes unitários** (`*.UnitTests`): domínio e handlers de Application, com dependências de
-  Infrastructure substituídas por fakes/mocks. Rápidos (sem I/O real), executados a cada build.
+- **Testes unitários** (`*.UnitTests`, e os `*.spec.ts` do Angular): domínio e handlers de
+  Application no backend, lógica de `AuthService`/guards no frontend — dependências de
+  Infrastructure/rede substituídas por fakes/mocks. Rápidos (sem I/O real), executados a cada
+  build.
 - **Testes de integração** (`*.IntegrationTests`): sobem dependências reais via Testcontainers
   (PostgreSQL, Redis e, onde necessário para provar comportamento de broker, RabbitMQ) e hospedam
   a Api real via `WebApplicationFactory<Program>` (ou, para o pipeline de mensageria, a mesma
@@ -38,11 +43,14 @@ tests/
     que uma falha persistente (PostgreSQL real derrubado durante o teste) esgota o retry
     configurado e encaminha a mensagem para a fila de erro (DLQ), não apenas da camada de
     persistência isolada.
-- Não há, ainda, um único teste automatizado que una as duas pontas (o Ledger publicando E o
-  Daily Balance consumindo no mesmo processo de teste, através do mesmo broker) — cada serviço
-  prova sua metade do pipeline real separadamente. A validação da cadeia completa, ponta a ponta,
-  foi feita manualmente via `docker compose up` (comandos e resultados no
-  [README](../README.md)) e com o script de carga k6.
+- Nos testes de integração de cada serviço, não há um único teste que una as duas pontas (o
+  Ledger publicando E o Daily Balance consumindo no mesmo processo `dotnet test`, através do
+  mesmo broker) — cada serviço prova sua metade do pipeline real separadamente ali. Essa cadeia
+  completa — Ledger grava e publica, RabbitMQ entrega, Worker consome e atualiza a projeção —
+  **é** provada de ponta a ponta, de forma automatizada, pela suíte E2E (ver seção "E2E" abaixo):
+  o cenário `daily-balance.spec.ts` registra um lançamento pela UI do Ledger e só passa quando o
+  saldo consultado na UI do Daily Balance reflete esse lançamento, contra a stack real via
+  `docker compose` (broker, bancos e cache reais, não substitutos).
 
 ## Por que Testcontainers
 
@@ -74,6 +82,37 @@ qualquer máquina com Docker instalado, incluindo o runner do GitHub Actions
 | Login: credenciais válidas emitem token válido no endpoint protegido | Unit (`LoginHandlerTests`) + Integration (`AuthEndpointTests`, Postgres real) | Valida a regra (`LoginHandler`) isoladamente e, ponta a ponta, que o token emitido por `/api/v1/auth/login` é aceito por `/api/v1/transactions`. |
 | Login: senha incorreta e usuário inexistente respondem de forma indistinguível | Unit + Integration | `LoginHandlerTests` prova que o hasher não é sequer chamado para usuário inexistente; `AuthEndpointTests` prova que a resposta HTTP (título/detalhe) é idêntica nos dois casos — não vaza quais usuários existem. |
 | Validação de usuário/senha (`LoginValidator`) | Unit (`LoginValidatorTests`) | Espelha os limites reais: `Username` até 128 (`users.username`), `Password` até 72 (limite efetivo do BCrypt). |
+
+## E2E (Playwright)
+
+`tests/e2e/` — 11 cenários (Playwright) que navegam a aplicação Angular real contra a stack
+completa subida via `docker compose up -d --build` (frontend + as duas APIs + Postgres +
+RabbitMQ + Redis), sem nenhum mock de rede. Cobrem uma camada que os testes de unidade/integração
+do backend não alcançam: o comportamento observável pelo usuário final através do navegador —
+formulário reativo, guards de rota, sessão em `sessionStorage`, e a consistência eventual do
+saldo (Outbox → RabbitMQ → Worker) tal como o comerciante realmente a experimenta.
+
+```text
+tests/e2e/tests/
+├── auth.spec.ts           # login inválido, login válido, guard de rota protegida, logout real
+├── transactions.spec.ts   # validação de formulário, crédito, débito, estorno, paginação (>10 itens)
+├── daily-balance.spec.ts  # saldo reflete lançamento recém-registrado, saldo exato de data isolada
+└── helpers.ts             # login via UI, seed de dados via API (setup, não parte do que é verificado)
+```
+
+Cenários que dependem de dados isolados (paginação, saldo exato de uma data) semeiam
+lançamentos direto pela API (`seedTransactions`) em vez de repetir o formulário 11 vezes —
+mantém o teste rápido e focado no que ele de fato verifica. Cada execução grava vídeo e
+screenshots de cada passo (`tests/e2e/screenshots/`), publicados como artifact no CI.
+
+```bash
+cd tests/e2e
+npm ci
+npx playwright install --with-deps chromium
+npm test
+```
+
+Detalhes em [`tests/e2e/README.md`](../tests/e2e/README.md).
 
 ## Execução
 
@@ -117,10 +156,16 @@ Outbox, Inbox, consumo real via broker) está coberta, não apenas implementada.
 
 ## CI
 
-`.github/workflows/ci.yml` roda build + testes unitários em todo push/PR, seguido de um job
-separado de testes de integração (o runner `ubuntu-latest` do GitHub Actions já tem Docker
-disponível nativamente para o Testcontainers). Um terceiro job roda os testes do frontend
-(`npm test`, Vitest) e o build de produção do Angular.
+`.github/workflows/ci.yml` roda quatro jobs em todo push/PR na `master`:
+
+1. **Backend — build e testes unitários**.
+2. **Backend — testes de integração** (o runner `ubuntu-latest` do GitHub Actions já tem Docker
+   disponível nativamente para o Testcontainers).
+3. **Frontend — lint e build**: testes unitários (`npm test`, Vitest) e build de produção do
+   Angular.
+4. **E2E**: sobe a stack completa via `docker compose up -d --build`, espera as APIs e o
+   frontend ficarem saudáveis, roda os 11 cenários Playwright e publica screenshots, vídeos e o
+   relatório HTML como artifact (`e2e-report`) — inclusive quando algum cenário falha.
 
 ## Referências
 

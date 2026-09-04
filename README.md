@@ -39,7 +39,8 @@ src/
 ├── Ledger/                               # Domain, Application, Infrastructure, Api
 └── DailyBalance/                         # Domain, Application, Infrastructure, Api, Worker
 tests/                                    # xUnit: unitários e integração (Testcontainers)
-frontend/verity-web/                      # Angular 22
+tests/e2e/                                # Playwright: 11 cenários contra a stack real
+frontend/verity-web/                      # Angular 22 (testes unitários em src/app/**/*.spec.ts)
 k6/                                       # Script e resultados de carga
 docs/                                     # Documentação arquitetural completa
 deploy/postgres/                          # Script de inicialização dos bancos locais
@@ -111,8 +112,29 @@ dotnet test Verity.slnx
 ```
 
 Os testes de integração usam Testcontainers (PostgreSQL/RabbitMQ efêmeros via Docker) — não é
-necessário subir o `docker-compose.yml` antes, apenas ter o Docker em execução. Detalhes da
-estratégia de testes em [`docs/testing-strategy.md`](docs/testing-strategy.md).
+necessário subir o `docker-compose.yml` antes, apenas ter o Docker em execução.
+
+Testes unitários do frontend (Vitest):
+
+```bash
+cd frontend/verity-web
+npm ci
+npm test
+```
+
+Testes E2E (Playwright) — navegam a aplicação real contra a stack completa, com screenshot e
+vídeo de cada cenário:
+
+```bash
+docker compose up -d --build
+cd tests/e2e
+npm ci
+npx playwright install --with-deps chromium
+npm test
+```
+
+Detalhes da estratégia de testes em [`docs/testing-strategy.md`](docs/testing-strategy.md) e
+[`tests/e2e/README.md`](tests/e2e/README.md).
 
 ## Rodando o teste de carga (k6)
 
