@@ -1,5 +1,7 @@
 # Fluxo de Caixa (Ledger + Daily Balance)
 
+[![CI](https://github.com/danilovsoares/resilient-ledger/actions/workflows/ci.yml/badge.svg)](https://github.com/danilovsoares/resilient-ledger/actions/workflows/ci.yml)
+
 Solução para o desafio de arquiteto de software: um comerciante registra lançamentos diários de
 crédito/débito e consulta o saldo consolidado por dia. O requisito central é que **o registro de
 lançamentos nunca fique indisponível se o serviço de consolidado cair**, e que a consulta de
