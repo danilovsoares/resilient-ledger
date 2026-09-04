@@ -2,9 +2,13 @@ import { defineConfig, devices } from '@playwright/test';
 
 /**
  * Testes E2E rodam contra a stack real (docker-compose): frontend Angular + as duas APIs +
- * Postgres/RabbitMQ/Redis. Não fazem mock de rede — a ideia é validar a jornada ponta a ponta
- * (login -> lançamento -> saldo diário), incluindo a consistência eventual do saldo
+ * Postgres/RabbitMQ/Redis. Não fazem mock de rede — a ideia é validar cenários ponta a ponta
+ * (autenticação, lançamentos, saldo diário), incluindo a consistência eventual do saldo
  * (Outbox -> RabbitMQ -> Worker), não apenas o comportamento do Angular isolado.
+ *
+ * workers: 1 é proposital, não uma limitação — vários cenários escrevem na mesma data de
+ * negócio ("hoje") e leem contagens/paginação; rodar em série evita que um teste veja dados
+ * de outro no meio de uma escrita.
  */
 export default defineConfig({
   testDir: './tests',
@@ -19,7 +23,7 @@ export default defineConfig({
   use: {
     baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:4201',
     trace: 'on-first-retry',
-    video: 'retain-on-failure',
+    video: 'on',
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
