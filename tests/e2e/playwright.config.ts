@@ -13,6 +13,7 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './tests',
   outputDir: './test-results',
+  timeout: 60_000,
   fullyParallel: false,
   workers: 1,
   retries: process.env.CI ? 1 : 0,

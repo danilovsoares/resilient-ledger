@@ -23,31 +23,37 @@ export async function fillAmount(page: Page, digits: string): Promise<void> {
 }
 
 /**
- * Clica "Registrar lançamento" e localiza a linha resultante na tabela, navegando entre
- * páginas se necessário. Necessário porque a lista é ordenada por OccurredAt (não por
- * "mais recente primeiro") — em datas com muitos lançamentos acumulados (dados de
- * demonstração, reexecuções do próprio teste no mesmo dia), o novo lançamento pode não cair
- * na primeira página mesmo estando na data certa.
+ * Clica "Registrar lançamento", confirma pela resposta HTTP que o POST realmente foi aceito
+ * (em vez de inferir sucesso só pelo formulário resetar — num runner mais lento dá pra
+ * confundir "ainda não terminou" com "falhou"), e então localiza a linha resultante na
+ * tabela. Não precisa lidar com paginação aqui: todo chamador registra numa data isolada e
+ * única (ver `isoDateUnique`), então o lançamento é sempre o único da página — uma versão
+ * anterior tentava "clicar Próxima" quando a linha não aparecia de imediato, mas isso podia
+ * pegar o estado de paginação de ANTES da troca de data (ainda mostrando "hoje", com dados
+ * acumulados de outros testes) e navegar para a página errada, procurando para sempre no
+ * lugar errado.
  */
 export async function submitAndFindRow(page: Page, marker: string): Promise<Locator> {
-  await page.getByRole('button', { name: 'Registrar lançamento' }).click();
+  const [response] = await Promise.all([
+    page.waitForResponse(
+      (res) => res.request().method() === 'POST' && res.url().includes('/api/v1/transactions'),
+      { timeout: 15_000 },
+    ),
+    page.getByRole('button', { name: 'Registrar lançamento' }).click(),
+  ]);
+
+  if (!response.ok()) {
+    throw new Error(
+      `Falha ao registrar lançamento via UI: HTTP ${response.status()} — ${await response.text()}`,
+    );
+  }
+
   // Espera o submit terminar: o formulário volta ao estado inicial após sucesso (ver
   // TransactionsPanelComponent.submit()).
   await expect(page.getByLabel('Valor')).toHaveValue(/^R\$\s*0,00$/, { timeout: 15_000 });
 
   const row = page.getByRole('row', { name: new RegExp(marker) });
-  for (let attempt = 0; attempt < 5; attempt++) {
-    if ((await row.count()) > 0) {
-      return row;
-    }
-
-    const nextButton = page.getByRole('button', { name: 'Próxima' });
-    if (!(await nextButton.isEnabled().catch(() => false))) {
-      break;
-    }
-    await nextButton.click();
-  }
-
+  await expect(row).toBeVisible({ timeout: 15_000 });
   return row;
 }
 
