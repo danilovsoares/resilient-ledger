@@ -1,6 +1,6 @@
 # Fluxo de Caixa (Ledger + Daily Balance)
 
-[![CI](https://github.com/danilovsoares/resilient-ledger/actions/workflows/ci.yml/badge.svg)](https://github.com/danilovsoares/resilient-ledger/actions/workflows/ci.yml)
+[![CI](https://github.com/danilovsoares/fluxo-de-caixa/actions/workflows/ci.yml/badge.svg)](https://github.com/danilovsoares/fluxo-de-caixa/actions/workflows/ci.yml)
 
 Solução para o desafio de arquiteto de software: um comerciante registra lançamentos diários de
 crédito/débito e consulta o saldo consolidado por dia. O requisito central é que **o registro de
